@@ -32,6 +32,21 @@ class HMM:
 
         self.unique_tags = set()
 
+        """ Back-off Probabilities """
+        self.transition_backoff = {}
+        self.emission_backoff = {}
+
+        """ Singleton counts """
+        self.transition_singleton = {}
+        self.emission_singleton = {}
+
+        """ 1-count smoothed probabilities """
+        self.transition_one_count = {}
+        self.emission_smoothed = {}
+
+        self.tag_count = {}
+        self.n = 0
+
     def load(self):
         f = open(self.model, "rb")
         dictionaries = pickle.load(f)
@@ -41,8 +56,18 @@ class HMM:
         self.bigram_counts = dictionaries["bigram"]
         self.unique_tags = dictionaries["unique_tags"]
 
+        """ New probabilities """
+        self.transition_backoff = dictionaries["transition_backoff"]
+        self.emission_backoff = dictionaries["emission_backoff"]
+        self.transition_singleton = dictionaries["transition_singleton"]
+        self.emission_singleton = dictionaries["emission_singleton"]
+        self.transition_one_count = dictionaries["transition_smoothed"]
+        self.emission_smoothed = dictionaries["emission_smoothed"]
+        self.tag_count = dictionaries["tag_count"]
+        self.n = dictionaries["n"]
+
     def base_case(self, word, current_tag):
-        emission = self.emission.get((word, current_tag), 1.0)
+        emission = self._get_smoothed_emission(word, current_tag)
         transition = self._get_smoothed_transition(ConditionalProbability.start_tag, ConditionalProbability.start_tag, current_tag)
         return emission + transition, transition
 
@@ -73,14 +98,31 @@ class HMM:
             return self.word2tag[word]
         return self.unique_tags
 
+    def _get_emission_backoff(self, word):
+        if word in self.emission_backoff:
+            return self.emission_backoff[word]
+
+        V = len(self.unique_tags)
+        return float(1) / float(self.n + V)
+
+    def _get_smoothed_emission(self, word, tag):
+        if (word, tag) in self.emission_smoothed:
+            return self.emission_smoothed[(word, tag)]
+        else:
+            lamda = 1 + self.emission_singleton.get(tag, 0)
+            return math.log(float(lamda * self._get_emission_backoff(word)) /\
+                                                               float(self.tag_count[tag] + lamda))
+
     def _get_smoothed_transition(self, tag_k, tag_j, tag_i):
-        if (tag_k, tag_j, tag_i) in self.transition:
+        if (tag_k, tag_j, tag_i) in self.transition_one_count:
             """ transition probability P(tag_i | tag_i - 1, tag_i - 2) """
-            transition_probability = self.transition[(tag_k, tag_j, tag_i)]
+            transition_probability = self.transition_one_count[(tag_k, tag_j, tag_i)]
         else:
             """ Smoothed transition probability """
             bigram_counts = self._get_bigram_counts(tag_k, tag_j)
-            transition_probability = math.log(float(1) / float(bigram_counts + len(self.unique_tags)))
+            lamda = 1 + self.transition_singleton.get((tag_k, tag_j), 0)
+            transition_probability = math.log(float(lamda * self.transition_backoff[tag_i]) /\
+                float(bigram_counts + lamda))
         return transition_probability
 
     def decode(self, sentence):
@@ -107,7 +149,7 @@ class HMM:
                     backpointer = None
 
                     """ Emission probability P(w | tag_i) """
-                    emission_probability = self.emission.get((word, tag_i), 1.0)
+                    emission_probability = self._get_smoothed_emission(word, tag_i)
 
                     """ Loop over all possible pair of tags for the previous 2 words """
                     for tag_j in self._get_tags(sentence[j - 1]):
@@ -136,6 +178,7 @@ class HMM:
        for word, tag in pos_tagging:
             word_tag.append(Atom(word+Atom.delimiter+tag, True))
 
+       print(self.transition_singleton)
        return word_tag
 
 

@@ -70,16 +70,8 @@ class ViterbiDecode:
                 if (word_sequence[index], word_tag_i) not in self.emission_probabilities:
                     viterbi_prob = self.recursive_probability_cal_sequence(word_sequence, index - 1, word_tag_i_1) + \
                                    transition_prob
-                    # Taking high negative value for probability when the tag combinations doesn't exists.
-                    # Transition probabilities
-                    # /viterbi_prob = -1000000.0
                 else:
-                    # Viterbi probability for any sequence is
-                    # Viterbi Probability from previous words +
-                    # Emission probability for given word-tag sequence +
-                    # Transition probability for tag(i),tag(i-1),tag(i-2)
-                    viterbi_prob = self.recursive_probability_cal_sequence(word_sequence, index - 1, word_tag_i_1) + \
-                                   self.emission_probabilities[(word_sequence[index], word_tag_i)] + transition_prob
+                    self.emission_probabilities[(word_sequence[index], word_tag_i)] + transition_prob
 
                 # Save the maximum probability till now of all the combinations and the back pointer
                 # parent pointer(i-1)
