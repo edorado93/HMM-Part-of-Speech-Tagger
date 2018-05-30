@@ -178,7 +178,6 @@ class HMM:
        for word, tag in pos_tagging:
             word_tag.append(Atom(word+Atom.delimiter+tag, True))
 
-       print(self.transition_singleton)
        return word_tag
 
 
@@ -220,7 +219,7 @@ class HMM:
             # ensure our sentences have the same length
             if len(hmm_tagged_sents[i]) != len(gold_tagged_sents[i]):
                 raise Exception("HMM-tagged sentence did not match gold \
-                    standard sentence!")
+                    standard sentence!", len(hmm_tagged_sents), len(gold_tagged_sents))
 
             # loop through words in sentence
             for j in range(len(gold_tagged_sents[i])):
@@ -243,15 +242,24 @@ class HMM:
         return (right, wrong)
 
     def evaluate(self):
-        untagged_sentences = self.data_helper.get_raw_test()
-        tagged_development = self.data_helper.get_gold_standard()
         generated_tags = []
-        for sentence in untagged_sentences:
-            pos_tags = self.decode([x.get_word() for x in sentence])
-            generated_tags.append(pos_tags)
+        gold_tags = []
+        with open(self.data_helper.test_raw, "r", encoding='utf-8') as untagged_sentences:
+            for line in untagged_sentences:
+                l = []
+                for word in line.split():
+                    l.append(Atom(word, True))
+                generated_tags.append(l)
 
-        right, wrong = self.match(generated_tags, tagged_development)
-        print(right, wrong)
+        with open(self.data_helper.test_tagged, "r", encoding='utf-8') as tagged_development:
+            for line in tagged_development:
+                l = []
+                for word in line.split():
+                    l.append(Atom(word, True))
+                gold_tags.append(l)
+
+        right, wrong = self.match(generated_tags, gold_tags)
+        return right, wrong
 
     def run(self):
         output = open("hmmoutput.txt", "w")
@@ -267,12 +275,12 @@ class HMM:
         output.close()
 
 if __name__ == "__main__":
-    # hmm = HMM(["coding1-data-corpus/en_train_tagged.txt",
-    #             "coding1-data-corpus/homework2_tagged.txt",
-    #             "coding1-data-corpus/homework2_raw.txt"], "parameters.txt")
+    # hmm = HMM([("coding1-data-corpus/en_train_tagged.txt", True),
+    #            ("coding1-data-corpus/en_dev_tagged.txt", True),
+    #            ("hmmoutput2.txt", True)], "hmmmodel.txt")
     # hmm.load()
-    # # hmm.decode("time flies like an arrow".split())
-    # hmm.evaluate()
+    # r, w = hmm.evaluate()
+    # print((float(r) * 100)/ float(w+r))
 
     filename = sys.argv[1]
     hmm = HMM([(filename, False), (filename, False), (filename, False)], "hmmmodel.txt")
